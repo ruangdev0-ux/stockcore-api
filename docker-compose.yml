@@ -1,0 +1,22 @@
+# Banco PostgreSQL para desenvolvimento local. A API roda com "dotnet run".
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stockcore-postgres
+    environment:
+      POSTGRES_USER: stockcore
+      POSTGRES_PASSWORD: stockcore
+      POSTGRES_DB: stockcore
+    ports:
+      - "5432:5432"
+    volumes:
+      - stockcore-data:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockcore"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  stockcore-data:

@@ -1,0 +1,22 @@
+# Build
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+
+# Testes e cobertura
+TestResults/
+coverage*/
+*.trx
+
+# Segredos e configurações locais
+.env
+appsettings.Local.json
+*.pfx
+
+# Sistema
+.DS_Store
+Thumbs.db
