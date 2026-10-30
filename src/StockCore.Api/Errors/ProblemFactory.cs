@@ -52,12 +52,12 @@ public static class ProblemFactory
             "Um ou mais campos são inválidos.",
             errors: errors);
 
-    public static ObjectResult ToResult(ProblemDetails problem)
-    {
-        var result = new ObjectResult(problem) { StatusCode = problem.Status };
-        result.ContentTypes.Add(ContentType);
-        return result;
-    }
+    /// <summary>
+    /// Resultado MVC com o problema. É um JsonResult (e não ObjectResult) para que o
+    /// [Produces("application/json")] dos controllers não troque o content-type.
+    /// </summary>
+    public static JsonResult ToResult(ProblemDetails problem) =>
+        new(problem) { StatusCode = problem.Status, ContentType = ContentType };
 
     /// <summary>Escreve direto na resposta (usado fora do MVC: handler de exceções e eventos do JWT).</summary>
     public static Task WriteAsync(HttpContext context, ProblemDetails problem)

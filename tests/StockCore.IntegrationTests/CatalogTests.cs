@@ -105,7 +105,7 @@ public class CatalogTests(ApiFactory factory) : IntegrationTestBase(factory)
     {
         var category = await Admin.CreateCategoryAsync("Mercearia");
 
-        var product = await Admin.CreateProductAsync(category.Id, " mer-001 ", minimumStock: 5, unitPrice: 27.90m);
+        var product = await Admin.CreateProductAsync(category.Id, "mer-001", minimumStock: 5, unitPrice: 27.90m);
 
         product.Sku.Should().Be("MER-001");
         product.CurrentStock.Should().Be(0);
