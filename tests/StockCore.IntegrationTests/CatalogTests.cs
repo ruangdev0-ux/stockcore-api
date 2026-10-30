@@ -60,6 +60,7 @@ public class CatalogTests(ApiFactory factory) : IntegrationTestBase(factory)
         problem.GetProperty("detail").GetString().Should().Be("Categoria não encontrada.");
         problem.GetProperty("instance").GetString().Should().StartWith("/api/categories/");
         problem.GetProperty("traceId").GetString().Should().NotBeNullOrWhiteSpace();
+        (await response.Content.ReadAsStringAsync()).Should().Contain("não encontrada", "acentos não devem ser escapados");
     }
 
     [Fact]

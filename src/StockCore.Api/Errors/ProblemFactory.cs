@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using StockCore.Domain.Exceptions;
@@ -12,7 +13,11 @@ public static class ProblemFactory
 {
     public const string ContentType = "application/problem+json";
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        // Mesmo escape do MVC: acentos saem legíveis (ex.: "saída" em vez de "sa\u00EDda").
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     public static ProblemDetails Create(
         HttpContext context,
@@ -57,7 +62,7 @@ public static class ProblemFactory
     /// [Produces("application/json")] dos controllers não troque o content-type.
     /// </summary>
     public static JsonResult ToResult(ProblemDetails problem) =>
-        new(problem) { StatusCode = problem.Status, ContentType = ContentType };
+        new(problem, JsonOptions) { StatusCode = problem.Status, ContentType = ContentType };
 
     /// <summary>Escreve direto na resposta (usado fora do MVC: handler de exceções e eventos do JWT).</summary>
     public static Task WriteAsync(HttpContext context, ProblemDetails problem)

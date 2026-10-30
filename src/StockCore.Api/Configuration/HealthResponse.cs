@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -5,7 +6,10 @@ namespace StockCore.Api.Configuration;
 
 public static class HealthResponse
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>Resposta de /health: status geral e de cada checagem (hoje, só o banco).</summary>
     public static Task WriteAsync(HttpContext context, HealthReport report)
