@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test:
+    name: Restore, formatação, build e testes
+    runs-on: ubuntu-latest
+
+    # PostgreSQL real para os testes de integração
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: stockcore
+          POSTGRES_PASSWORD: stockcore
+          POSTGRES_DB: stockcore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stockcore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=stockcore_test;Username=stockcore;Password=stockcore
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          dotnet restore
+          dotnet tool restore
+
+      - name: Formatação
+        run: dotnet format --verify-no-changes --no-restore --exclude src/StockCore.Infrastructure/Persistence/Migrations
+
+      - name: Build (avisos tratados como erro)
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Migrations sincronizadas com o modelo
+        run: >-
+          dotnet ef migrations has-pending-model-changes
+          --project src/StockCore.Infrastructure
+          --startup-project src/StockCore.Api
+          --configuration Release --no-build
+
+      - name: Testes (unitários e integração)
+        run: >-
+          dotnet test --no-build --configuration Release
+          --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=results"
+          --results-directory TestResults
+
+      - name: Resultados dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: ignore
+
+  docs:
+    name: Gerar documentação OpenAPI
+    needs: build-test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publicar a API
+        run: dotnet publish src/StockCore.Api --configuration Release --output out
+
+      - name: Exportar openapi.json da API em execução
+        run: |
+          # Chave descartável, gerada só para a API subir; não é usada para nada além disso.
+          export Jwt__Key="$(openssl rand -hex 32)"
+          dotnet out/StockCore.Api.dll --urls http://127.0.0.1:5080 > api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5080/swagger/v1/swagger.json -o docs/openapi.json; then
+              break
+            fi
+            sleep 1
+          done
+          test -s docs/openapi.json || { cat api.log; exit 1; }
+          python3 -c "import json; d=json.load(open('docs/openapi.json')); print(len(d['paths']), 'rotas documentadas')"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    name: Publicar no GitHub Pages
+    needs: docs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
